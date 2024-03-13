@@ -1,5 +1,7 @@
 import 'dart:developer';
+import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -11,6 +13,7 @@ import 'package:expandable_widgets/expandable_widgets.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
+  mainTestArea.updateTestingElement();
 }
 
 class MyApp extends StatelessWidget {
@@ -29,19 +32,20 @@ class MyApp extends StatelessWidget {
   }
 }
 
+MainTestArea mainTestArea = MainTestArea();
+
 class MyHomePage extends StatefulWidget {
   MyHomePage({super.key, required this.title});
 
   final String title;
 
-  MainTestArea mainTestArea = MainTestArea();
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+
 class _MyHomePageState extends State<MyHomePage> {
-  CollectParameters collectParameters = CollectParameters();
 
   void handleChangeLimitInput(String value) {
     setState(() {
@@ -62,7 +66,15 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Stack(
         alignment: Alignment.topCenter,
         children: <Widget>[
-          widget.mainTestArea,
+          GestureDetector(
+            onDoubleTap: () {
+              setState(() {
+                collectParameters.limit = "sa";
+                print("collectParameters.limit: ${collectParameters.limit}");
+              });
+            },
+              child: mainTestArea
+          ),
           Expandable( // parameter setter
             firstChild: Text(collectParameters.getLimit()),
             subChild: const Text("change parameters"),
@@ -132,7 +144,6 @@ Future<Database?> openDB() async {
     print('dirs: $dirs');
     var dbDir = await getExternalStorageDirectory();
     var dbPath = dbDir!.path + '/my_db.db';
-    log('dbPath: $dbPath');
     return openDatabase(dbPath, version: 1, onCreate: (db, version) {
       return db.execute('CREATE TABLE my_table (id INTEGER PRIMARY KEY, name TEXT)');
     });
@@ -164,6 +175,15 @@ abstract class TestingElement extends StatefulWidget {
 }
 
 class DefaultTestingElement extends TestingElement {
+  var idx = 0;
+  DefaultTestingElement({super.key, this.idx = 0, bool isMain=true}) {
+    if (isMain) {
+      relatedElements = [
+        DefaultTestingElement(idx: 1, isMain: false,),
+        DefaultTestingElement(idx: 2, isMain: false,)
+      ];
+    }
+  }
   @override
   State<StatefulWidget> createState() => _DefaultTestingElementState();
 
@@ -181,13 +201,16 @@ class DefaultTestingElement extends TestingElement {
 class _DefaultTestingElementState extends State<DefaultTestingElement> {
   @override
   Widget build(BuildContext context) {
-    return const Text("DefaultTestingElement");
+    return Text("DefaultTestingElement${widget.idx}");
   }
 }
 
 class SingleTestingArea extends StatefulWidget {
   SingleTestingArea({super.key});
   TestingElement element = DefaultTestingElement();
+  void updateElement(TestingElement element) {
+    this.element = element;
+  }
   @override
   State<StatefulWidget> createState() => _SingleTestingAreaState();
 }
@@ -202,7 +225,7 @@ class _SingleTestingAreaState extends State<SingleTestingArea> {
           borderRadius: BorderRadius.circular(10),
         ),
         child: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.7,
+          width: MediaQuery.of(context).size.width * 0.72,
           height: MediaQuery.of(context).size.height * 0.33,
           child: Padding(
             padding: const EdgeInsets.all(8.0),
@@ -233,6 +256,11 @@ class MainTestArea extends StatefulWidget {
   MainTestArea({super.key});
   SingleTestingArea relatedSingleTestingArea = SingleTestingArea();
   SingleTestingArea mainSingleTestingArea = SingleTestingArea();
+  void updateTestingElement() {
+    print("nowTestingElementIdx: $nowTestingElementIdx");
+    mainSingleTestingArea.updateElement(testingElements[nowTestingElementIdx]);
+    relatedSingleTestingArea.updateElement(testingElements[nowTestingElementIdx].relatedElements[0]);
+  }
 
   @override
   State<StatefulWidget> createState() => _MainTestAreaState();
@@ -244,32 +272,58 @@ class _MainTestAreaState extends State<MainTestArea> {
 
     return Center(
       child:
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.outlineVariant,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: SizedBox(
-            width: MediaQuery.of(context).size.width * 0.8,
-            height: MediaQuery.of(context).size.height * 0.75,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: widget.relatedSingleTestingArea,
-                ),
-                const Divider(),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: widget.mainSingleTestingArea,
-                ),
-              ],
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            change2NextTestingElement();
+            collectParameters.limit = "se";
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: MediaQuery.of(context).size.height * 0.75,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.018),
+                    child: widget.relatedSingleTestingArea,
+                  ),
+                  const Divider(),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: widget.mainSingleTestingArea,
+                  ),
+                ],
+              )
             )
-          )
+          ),
         ),
       )
     );
   }
 }
+
+CollectParameters collectParameters = CollectParameters();
+
+var nowTestingElementIdx = 0;
+List<TestingElement> testingElements = [DefaultTestingElement(idx: 8,), DefaultTestingElement(idx: 9,), DefaultTestingElement(idx: 22,)];
+
+void change2NextTestingElement() {
+  if (nowTestingElementIdx < testingElements.length - 1) {
+    nowTestingElementIdx++;
+  } else {
+    // shuffle the testing List
+    testingElements.shuffle(Random());
+    nowTestingElementIdx = 0;
+  }
+  mainTestArea.updateTestingElement();
+  print("nowTestingElementIdx: $nowTestingElementIdx");
+}
+
