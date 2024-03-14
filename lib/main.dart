@@ -8,12 +8,13 @@ import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:expandable_widgets/expandable_widgets.dart';
-
+import 'fileSync.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  getIp().then((value) => print("ip: $value"));
+  startServer().then((value) => print("server started"));
   runApp(const MyApp());
-  mainTestArea.updateTestingElement();
 }
 
 class MyApp extends StatelessWidget {
@@ -64,62 +65,61 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Stack(
-        alignment: Alignment.topCenter,
-        children: <Widget>[
-          GestureDetector(
-            onDoubleTap: () {
-              setState(() {
-                collectParameters.limit = "sa";
-                print("collectParameters.limit: ${collectParameters.limit}");
-              });
-            },
-              child: mainTestArea
-          ),
-          Expandable( // parameter setter
-            firstChild: Text(collectParameters.getLimit()),
-            subChild: const Text("change parameters"),
-            secondChild: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      const Text("Limit: "),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: SizedBox(
-                          width: 300,
-                          child: TextField(
-                            onChanged: handleChangeLimitInput,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              labelText: 'Enter new limit',
-                            ),
-                          ),
+        children: [
+          SizedBox(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height,
+            child: Stack(
+              children: <Widget>[
+                mainTestArea.getWidget(),
+                Expandable( // parameter setter
+                  firstChild: Text(collectParameters.getLimit()),
+                  subChild: const Text("change parameters"),
+                  secondChild: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0, ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            const Text("Limit: "),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: SizedBox(
+                                width: 300,
+                                child: TextField(
+                                  onChanged: handleChangeLimitInput,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    labelText: 'Enter new limit',
+                                  ),
+                                ),
+                              ),
+                            )
+                          ],
                         ),
-                      )
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      const Text("Load previous: "),
-                      Switch(
-                        value: collectParameters.loadPrevious,
-                        onChanged: (bool value) {
-                          setState(() {
-                            collectParameters.loadPrevious = value;
-                          });
-                        },
-                      ),
-                  ]),
-                ]
-              ),
-            )
-          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            const Text("Load previous: "),
+                            Switch(
+                              value: collectParameters.loadPrevious,
+                              onChanged: (bool value) {
+                                setState(() {
+                                  collectParameters.loadPrevious = value;
+                                });
+                              },
+                            ),
+                        ]),
+                      ]
+                    ),
+                  )
+                ),
 
-      ]),
+            ]),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => {},
         tooltip: 'Increment',
@@ -163,20 +163,19 @@ class CollectParameters {
   }
 }
 
-abstract class TestingElement extends StatefulWidget {
+abstract class TestingElement {
   String methodName = "AbstractTestingElementState";
   int time = 0;
   GestureDetector? detector;
   List<TestingElement> relatedElements = [];
 
-  void reload();
   void resetWidget();
-  TestingElement({super.key, });
+  Widget getWidget();
 }
 
 class DefaultTestingElement extends TestingElement {
   var idx = 0;
-  DefaultTestingElement({super.key, this.idx = 0, bool isMain=true}) {
+  DefaultTestingElement({this.idx = 0, bool isMain=true}) {
     if (isMain) {
       relatedElements = [
         DefaultTestingElement(idx: 1, isMain: false,),
@@ -185,11 +184,8 @@ class DefaultTestingElement extends TestingElement {
     }
   }
   @override
-  State<StatefulWidget> createState() => _DefaultTestingElementState();
-
-  @override
-  void reload() {
-    // TODO: implement reload
+  Widget getWidget() {
+    return DefaultTestingElementWidget(idx: idx);
   }
 
   @override
@@ -198,24 +194,37 @@ class DefaultTestingElement extends TestingElement {
   }
 }
 
-class _DefaultTestingElementState extends State<DefaultTestingElement> {
+class DefaultTestingElementWidget extends StatefulWidget {
+  DefaultTestingElementWidget({super.key, this.idx = 0});
+  final int idx;
+  @override
+  State<StatefulWidget> createState() => _DefaultTestingElementWidgetState();
+}
+
+class _DefaultTestingElementWidgetState extends State<DefaultTestingElementWidget> {
   @override
   Widget build(BuildContext context) {
     return Text("DefaultTestingElement${widget.idx}");
   }
 }
 
-class SingleTestingArea extends StatefulWidget {
-  SingleTestingArea({super.key});
+class SingleTestingArea {
+  SingleTestingArea();
   TestingElement element = DefaultTestingElement();
   void updateElement(TestingElement element) {
     this.element = element;
   }
-  @override
-  State<StatefulWidget> createState() => _SingleTestingAreaState();
+  Widget getWidget() => SingleTestingAreaWidget(element: element);
 }
 
-class _SingleTestingAreaState extends State<SingleTestingArea> {
+class SingleTestingAreaWidget extends StatefulWidget {
+  SingleTestingAreaWidget({super.key, required this.element});
+  final TestingElement element;
+  @override
+  State<StatefulWidget> createState() => _SingleTestingAreaWidgetState();
+}
+
+class _SingleTestingAreaWidgetState extends State<SingleTestingAreaWidget> {
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -242,7 +251,7 @@ class _SingleTestingAreaState extends State<SingleTestingArea> {
                   ],
                 ),
                 const Divider(),
-                widget.element,
+                widget.element.getWidget(),
               ],
             )
           )
@@ -252,68 +261,91 @@ class _SingleTestingAreaState extends State<SingleTestingArea> {
   }
 }
 
-class MainTestArea extends StatefulWidget {
-  MainTestArea({super.key});
+class MainTestArea {
   SingleTestingArea relatedSingleTestingArea = SingleTestingArea();
   SingleTestingArea mainSingleTestingArea = SingleTestingArea();
+  var posLeft = 0.1;
+  var posTop = 0.08;
+
   void updateTestingElement() {
     print("nowTestingElementIdx: $nowTestingElementIdx");
     mainSingleTestingArea.updateElement(testingElements[nowTestingElementIdx]);
-    relatedSingleTestingArea.updateElement(testingElements[nowTestingElementIdx].relatedElements[0]);
+    relatedSingleTestingArea.updateElement(
+        testingElements[nowTestingElementIdx].relatedElements[0]);
   }
-
-  @override
-  State<StatefulWidget> createState() => _MainTestAreaState();
+  void handleDragUpdateGesture(DragUpdateDetails details, BuildContext context) {
+    posLeft += details.delta.dx / MediaQuery.of(context).size.width;
+    posTop += details.delta.dy / MediaQuery.of(context).size.height;
+  }
+  void handleDragEndGesture(DragEndDetails details) {
+    if (posLeft < 0.0) {
+      takeNote();
+      change2NextTestingElement();
+    }
+    else if (posTop + 0.75 > 1.0) {
+      change2NextTestingElement();
+    }
+    posLeft = 0.1;
+    posTop = 0.08;
+  }
+  Widget getWidget() => MainTestAreaWidget(mainTestArea: this);
 }
 
-class _MainTestAreaState extends State<MainTestArea> {
+class MainTestAreaWidget extends StatefulWidget {
+  MainTestArea mainTestArea;
+  MainTestAreaWidget({super.key, required this.mainTestArea});
+  @override
+  State<StatefulWidget> createState() => _MainTestAreaWidgetState();
+}
+
+class _MainTestAreaWidgetState extends State<MainTestAreaWidget> {
   @override
   Widget build(BuildContext context) {
-
-    return Center(
-      child:
-      GestureDetector(
-        onTap: () {
+    return Positioned(
+      left: widget.mainTestArea.posLeft * MediaQuery.of(context).size.width,
+      top: widget.mainTestArea.posTop * MediaQuery.of(context).size.height,
+      child: GestureDetector(
+        onPanUpdate: (details) {
           setState(() {
-            change2NextTestingElement();
-            collectParameters.limit = "se";
+            widget.mainTestArea.handleDragUpdateGesture(details, context);
           });
         },
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width * 0.8,
-              height: MediaQuery.of(context).size.height * 0.75,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.018),
-                    child: widget.relatedSingleTestingArea,
-                  ),
-                  const Divider(),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: widget.mainSingleTestingArea,
-                  ),
-                ],
-              )
-            )
+        onPanEnd: (details) {
+          setState(() {
+            widget.mainTestArea.handleDragEndGesture(details);
+          });
+        },
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.outlineVariant,
+            borderRadius: BorderRadius.circular(10),
           ),
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.8,
+            height: MediaQuery.of(context).size.height * 0.75,
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.018),
+                  child: widget.mainTestArea.relatedSingleTestingArea.getWidget(),
+                ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: widget.mainTestArea.mainSingleTestingArea.getWidget(),
+                ),
+              ],
+            )
+          )
         ),
-      )
+      ),
     );
   }
 }
 
-CollectParameters collectParameters = CollectParameters();
-
-var nowTestingElementIdx = 0;
-List<TestingElement> testingElements = [DefaultTestingElement(idx: 8,), DefaultTestingElement(idx: 9,), DefaultTestingElement(idx: 22,)];
+void takeNote() {
+  print("takeNote() called");
+}
 
 void change2NextTestingElement() {
   if (nowTestingElementIdx < testingElements.length - 1) {
@@ -324,6 +356,8 @@ void change2NextTestingElement() {
     nowTestingElementIdx = 0;
   }
   mainTestArea.updateTestingElement();
-  print("nowTestingElementIdx: $nowTestingElementIdx");
 }
 
+CollectParameters collectParameters = CollectParameters();
+var nowTestingElementIdx = 0;
+List<TestingElement> testingElements = [DefaultTestingElement(idx: 8,), DefaultTestingElement(idx: 9,), DefaultTestingElement(idx: 22,)];
