@@ -34,6 +34,7 @@ dependencies:
   path_provider:
   permission_handler:
   expandable_widgets:
+  fluttertoast:
 
 
   # The following adds the Cupertino Icons font to your application.
