@@ -1,6 +1,9 @@
+import 'dart:collection';
 import 'dart:developer';
 import 'dart:math';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,12 +13,17 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:expandable_widgets/expandable_widgets.dart';
 import 'fileSync.dart';
 import 'Methods.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  //getIp().then((value) => print("ip: $value"));
-  //startServer().then((value) => print("server started"));
-  collectParameters.handleLimitInput("1|2|3&4|5|6");
+  openDB().then((db) {
+    collectParameters.initFromDB(db!).then(
+        (value) {
+          db.close();
+        }
+    );
+  });
   runApp(const MyApp());
 }
 
@@ -54,6 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,13 +74,59 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Stack(
+        alignment: Alignment.bottomCenter,
         children: [
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                print("nowTestingElementIdx: $nowTestingElementIdx");
+              });
+            },
+              child: Text("$nowTestingElementIdx"), ),
+          Positioned(
+            left: mainTestArea.posLeft * MediaQuery.of(context).size.width,
+            top: mainTestArea.posTop * MediaQuery.of(context).size.height,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                setState(() {
+                  mainTestArea.handleDragUpdateGesture(details, context);
+                });
+              },
+              onPanEnd: (details) {
+                setState(() {
+                  mainTestArea.handleDragEndGesture(details);
+                });
+              },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                borderRadius: BorderRadius.circular(10),
+                ),
+                child: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                height: MediaQuery.of(context).size.height * 0.75,
+                  child: Column(
+                    children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.018),
+                      child: mainTestArea.relatedSingleTestingArea.getWidget(),
+                    ),
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child:mainTestArea.mainSingleTestingArea.getWidget(),
+                    ),
+                    ],
+                  )
+                )
+              ),
+            ),
+          ),
           SizedBox(
             width: MediaQuery.of(context).size.width,
             height: MediaQuery.of(context).size.height,
             child: Stack(
               children: <Widget>[
-                mainTestArea.getWidget(),
                 Expandable( // parameter setter
                   firstChild: Text(collectParameters.getLimit()),
                   subChild: const Text("change parameters"),
@@ -115,31 +170,89 @@ class _MyHomePageState extends State<MyHomePage> {
                               },
                             ),
                         ]),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            const Text("Method: "),
-                            DropdownButton<String>(
-                              value: collectParameters.method,
-                              onChanged: (String? newValue) {
-                                setState(() {
-                                  collectParameters.method = newValue!;
-                                });
-                              },
-                              items: <String>['EnVocDef', 'EnVocSpe', 'EnVocDefSpe', 'EnVocDefSpeVoc']
-                                  .map<DropdownMenuItem<String>>((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
-                            ),
-                          ],
+                        const Text("Method: "),
+                        CheckboxListTile(
+                          title: const Text("en_voc_def"),
+                          value: collectParameters.methods.contains("en_voc_def"),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value!) {
+                                collectParameters.methods.add("en_voc_def");
+                              } else {
+                                collectParameters.methods.remove("en_voc_def");
+                              }
+                            });
+                          },
                         ),
-                        // button to reget the testing elements
+                        CheckboxListTile(
+                          title: const Text("en_voc_spe"),
+                          value: collectParameters.methods.contains("en_voc_spe"),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value!) {
+                                collectParameters.methods.add("en_voc_spe");
+                              } else {
+                                collectParameters.methods.remove("en_voc_spe");
+                              }
+                            });
+                          },
+                        ),
+                        CheckboxListTile(
+                          title: const Text("en_prep_def"),
+                          value: collectParameters.methods.contains("en_prep_def"),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value!) {
+                                collectParameters.methods.add("en_prep_def");
+                              } else {
+                                collectParameters.methods.remove("en_prep_def");
+                              }
+                            });
+                          },
+                        ),
+                        CheckboxListTile(
+                          title: const Text("en_prep_spe"),
+                          value: collectParameters.methods.contains("en_prep_spe"),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value!) {
+                                collectParameters.methods.add("en_prep_spe");
+                              } else {
+                                collectParameters.methods.remove("en_prep_spe");
+                              }
+                            });
+                          },
+                        ),
+                        CheckboxListTile(
+                          title: const Text("notes"),
+                          value: collectParameters.methods.contains("notes"),
+                          onChanged: (bool? value) {
+                            setState(() {
+                              if (value!) {
+                                collectParameters.methods.add("notes");
+                              } else {
+                                collectParameters.methods.remove("notes");
+                              }
+                            });
+                          },
+                        ),
                         ElevatedButton(
                           onPressed: () {
-                            reGet();
+                            setState(() {
+                              openDB().then((db) {
+                                collectParameters.save2DB(db!).then(
+                                    (value) {
+                                      initLoading(db).then(
+                                          (value) {
+                                            nowId = value;
+                                            print("nowId: $nowId");
+                                            db.close();
+                                          }
+                                      );
+                                    }
+                                );
+                              });
+                            });
                           },
                           child: const Text("Reget"),
                         ),
@@ -147,24 +260,27 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   )
                 ),
-
             ]),
           ),
+
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           isServerOn = !isServerOn;
           if (isServerOn) {
-            Fluttertoast.showToast(
-                msg: "Server started",
-                toastLength: Toast.LENGTH_SHORT,
-                gravity: ToastGravity.CENTER,
-                timeInSecForIosWeb: 1,
-                backgroundColor: Colors.red,
-                textColor: Colors.white,
-                fontSize: 16.0
-            );
+            var wifiInfo = NetworkInfo();
+            wifiInfo.getWifiIP().then((value) {
+              Fluttertoast.showToast(
+                  msg: "Server started at $value:8765",
+                  toastLength: Toast.LENGTH_LONG,
+                  gravity: ToastGravity.CENTER,
+                  timeInSecForIosWeb: 5,
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                  fontSize: 16.0
+              );
+            });
             startServer().then((value) {
               print("server started");
               server = value;
@@ -200,32 +316,46 @@ Future<void> ckeckPermission() async {
 }
 
 Future<Database?> openDB() async {
-  if (Platform.isAndroid) {
-    var dirs = await getExternalStorageDirectories();
-    print('dirs: $dirs');
-    var dbDir = await getExternalStorageDirectory();
-    var dbPath = dbDir!.path + '/highSchool.db';
-    return openDatabase(dbPath, version: 1, );
-  } else {
-    throw 'Unsupported platform';
-  }
-  return null;
+  var dbDir = await getApplicationDocumentsDirectory();
+  var dbPath = '${dbDir.path}/highSchool.db';
+  return await openDatabase(dbPath, version: 1, );
 }
 
 class CollectParameters {
+  Future<void> initFromDB(Database db) async{
+    print("initFromDB() called");
+    List<Map<String, dynamic>> res = await db.rawQuery('SELECT * FROM settings');
+    if (res.isNotEmpty) {
+      limit = res[0]['te_tags'];
+      handleLimitInput(limit);
+      loadPrevious = res[0]['to_lp'] == 1;
+      methods = res[0]['te_methods'].split("|");
+      methods.sort();
+      minLevel = res[0]['te_level'];
+    }
+  }
+  Future<void> save2DB(Database db) async{
+    await db.rawUpdate("UPDATE settings SET te_tags=?, te_lp=?, te_methods=?, te_level=?", [limit, loadPrevious?1:0, methods.join("|"), minLevel]);
+  }
+  int minLevel = -1;
   String limit = "0";
   String limitCode = "";
   bool loadPrevious = false;
-  String method = "EnVocDef";
+  List<String> methods = [];
   String getLimit() {
     // TODO implement this
     return limit;
   }
+
+  List<dynamic> sorted(List list) {
+    list.sort();
+    return list;
+  }
   void handleLimitInput(String value) {
     limit = value;
     String ret = '(';
-    value.split("|").forEach((element) {
-      element.split("&").forEach((element) {
+    sorted(value.split("|")).forEach((element) {
+      sorted(element.split("&")).forEach((element) {
         ret += 'tags like "%|$element|%" and ';
       });
       ret = ret.substring(0, ret.length - 4);
@@ -241,28 +371,33 @@ abstract class TestingElement {
   int time;
   String que = "";
   String ans = "";
-  TestingElement({required this.time}) {
-    openDB().then((db) {
-      db!.rawQuery('SELECT que,ans FROM en_voc WHERE time=$time').then((List<Map<String, dynamic>> result) {
-        ans = result[0]['ans'];
-        que = result[0]['que'];
-        getRelatedTestingElements(this).then((value) => relatedElements = value);
-        db.close();
-      });
-    });
+  TestingElement({required this.time});
+  void regetRelatedTestingElements(Database db) async {
+    relatedElements = await getRelatedTestingElements(this, db);
+  }
+
+  Future<void> getQueAndAns(String tableName, Database db) async {
+    List<Map<String, dynamic>> result = await db.rawQuery('SELECT que,ans FROM $tableName WHERE time=$time');
+    if (result.isNotEmpty) {
+      ans = result[0]['ans'];
+      que = result[0]['que'];
+    }
   }
   abstract String methodName;
   GestureDetector? detector;
   List<TestingElement>? relatedElements;
 
+  Future<void> init(Database db) async {}
+
   void resetWidget();
+  void expandAll();
   Widget getWidget();
 }
 
 class DefaultTestingElement extends TestingElement {
   String methodName = "Default";
   var idx = 0;
-  DefaultTestingElement({this.idx = 0, bool isMain=true, required super.time}) {
+  DefaultTestingElement({this.idx = 0, bool isMain=true, required super.time}){
     if (isMain) {
       relatedElements = [
         DefaultTestingElement(idx: 1, isMain: false, time: 0,),
@@ -278,6 +413,11 @@ class DefaultTestingElement extends TestingElement {
   @override
   void resetWidget() {
     // TODO: implement resetWidget
+  }
+
+  @override
+  void expandAll() {
+    // TODO: implement expandAll
   }
 }
 
@@ -332,13 +472,23 @@ class _SingleTestingAreaWidgetState extends State<SingleTestingAreaWidget> {
                     const Text("Single Testing Area"),
                     const Spacer(),
                     IconButton(
-                      onPressed: () => {},
-                      icon: const Icon(Icons.add),
+                      onPressed: () {
+                        setState(() {
+                          widget.element.expandAll();
+                        });
+                      },
+                      icon: const Icon(Icons.lightbulb),
                     )
                   ],
                 ),
                 const Divider(),
-                widget.element.getWidget(),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.22,
+                    maxWidth: MediaQuery.of(context).size.width * 0.7,
+                  ),
+                  child: widget.element.getWidget()
+                ),
               ],
             )
           )
@@ -371,37 +521,54 @@ class MainTestArea {
       takeNote();
       change2NextTestingElement();
     }
-    else if (posTop + 0.75 > 1.0) {
+    else if (posTop > 0.1) {
       change2NextTestingElement();
     }
     posLeft = 0.1;
     posTop = 0.08;
   }
-  Widget getWidget() => MainTestAreaWidget(mainTestArea: this);
+  Widget getWidget() => const MainTestAreaWidget();
 }
 
 class MainTestAreaWidget extends StatefulWidget {
-  MainTestArea mainTestArea;
-  MainTestAreaWidget({super.key, required this.mainTestArea});
+  const MainTestAreaWidget({super.key});
   @override
   State<StatefulWidget> createState() => _MainTestAreaWidgetState();
 }
 
+class TextTest extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() => _TextTestState();
+}
+
+class _TextTestState extends State<TextTest> {
+  @override
+  Widget build(BuildContext context) {
+    print("TextTest build called");
+    return const Text("TextTest");
+  }
+}
+
 class _MainTestAreaWidgetState extends State<MainTestAreaWidget> {
+  @override
+  void didUpdateWidget(covariant MainTestAreaWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print("MainTestAreaWidget didUpdateWidget called");
+  }
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: widget.mainTestArea.posLeft * MediaQuery.of(context).size.width,
-      top: widget.mainTestArea.posTop * MediaQuery.of(context).size.height,
+      left: mainTestArea.posLeft * MediaQuery.of(context).size.width,
+      top: mainTestArea.posTop * MediaQuery.of(context).size.height,
       child: GestureDetector(
         onPanUpdate: (details) {
           setState(() {
-            widget.mainTestArea.handleDragUpdateGesture(details, context);
+            mainTestArea.handleDragUpdateGesture(details, context);
           });
         },
         onPanEnd: (details) {
           setState(() {
-            widget.mainTestArea.handleDragEndGesture(details);
+            mainTestArea.handleDragEndGesture(details);
           });
         },
         child: DecoratedBox(
@@ -416,12 +583,12 @@ class _MainTestAreaWidgetState extends State<MainTestAreaWidget> {
               children: [
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.018),
-                  child: widget.mainTestArea.relatedSingleTestingArea.getWidget(),
+                  child: mainTestArea.relatedSingleTestingArea.getWidget(),
                 ),
                 const Divider(),
                 Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: widget.mainTestArea.mainSingleTestingArea.getWidget(),
+                  child:mainTestArea.mainSingleTestingArea.getWidget(),
                 ),
               ],
             )
@@ -436,6 +603,13 @@ void takeNote() {
   print("takeNote() called");
 }
 
+Future<void> saveRemain2DB(Database db) async {
+  await db.rawInsert("DELETE FROM record_data WHERE id=$nowId");
+  for (var e in testingElements.sublist(nowTestingElementIdx)) {
+    await db.rawInsert("INSERT INTO record_data (id, method_name, time) VALUES (?, ?, ?)", [nowId, e.methodName, e.time]);
+  }
+}
+
 void change2NextTestingElement() {
   if (nowTestingElementIdx < testingElements.length - 1) {
     nowTestingElementIdx++;
@@ -447,42 +621,103 @@ void change2NextTestingElement() {
   mainTestArea.updateTestingElement();
 }
 
-Future<List<TestingElement>> getRelatedTestingElements(TestingElement element) async {
-  Database? db = await openDB();
+Future<List<TestingElement>> getRelatedTestingElements(TestingElement element, Database db) async {
   List<TestingElement>? ret;
-  if (db == null) {
-    return [DefaultTestingElement(time: 0)];
-  }
   List<Map<String, dynamic>> result;
-  if (element.methodName.contains("Voc")) {
+  if (element.methodName.contains("voc")) {
     result = await db.rawQuery("SELECT time FROM en_voc ORDER BY RANDOM() LIMIT 5");
-    if (element.methodName.contains("Def")) {
+    if (element.methodName.contains("def")) {
       ret = result.map((e) => EnVocDef_TestingElement(time: e['time'])).toList();
     }
   }
   else {
     ret = [DefaultTestingElement(time: 0)];
   }
-
-  db.close();
   if (ret == null) {
     return [DefaultTestingElement(time: 0)];
+  }
+  for (var e in ret) {
+    await e.init(db);
   }
   return ret;
 }
 
-void reGet() {
+Future<int> initLoading(Database db) async {
+  List<Map<String, dynamic>> matchedId = await db.rawQuery('SELECT id from record_list WHERE method_names="${collectParameters.methods.join("|")}" AND tags="${collectParameters.limit}"');
+  if (matchedId.isEmpty) {
+    await reGet(db);
+    await db.rawInsert("INSERT INTO record_list (method_names, tags) VALUES (?, ?)", [collectParameters.methods.join("|"), collectParameters.limit]);
+    int? id = (await db.rawQuery('SELECT id from record_list WHERE method_names="${collectParameters.methods.join("|")}" AND tags="${collectParameters.limit}"'))[0]['id'] as int?;
+    return id!;
+  }
+  else {
+    int id = matchedId[0]['id'];
+    List<Map<String, dynamic>> result = await db.rawQuery('SELECT time,method_name FROM record_data WHERE id=$id');
+    List<TestingElement> notTested = [];
+    List<TestingElement> tested = [];
+    for (var e in result) {
+      notTested.add(await getTestingElementFromMethodTime(e['method_name'], e['time'], db));
+    }
+    for (var method in collectParameters.methods) {
+      print("method: $method");
+      List<Map<String, dynamic>> notTestedResult = await db.rawQuery('SELECT time FROM ${methodName2Table[method]} WHERE ${collectParameters.limitCode} AND time NOT IN (SELECT time FROM record_data WHERE id=$id) ORDER BY RANDOM()');
+      for (var e in notTestedResult) {
+        tested.add(await getTestingElementFromMethodTime(method, e['time'], db));
+      }
+    }
+    testingElements = tested + notTested;
+    nowTestingElementIdx = tested.length;
+    return id;
+  }
+}
 
+Future<TestingElement> getTestingElementFromMethodTime(String method, int time, Database db) async{
+  late TestingElement ret;
+  if (method == "en_voc_def") {
+    ret = EnVocDef_TestingElement(time: time);
+  }
+  else if (method == "en_voc_spe") {
+    ret = EnVocSpe_TestingElement(time: time);
+  }
+  else if (method == "en_prep_def") {
+    ret = EnPrepDef_TestingElement(time: time);
+  }
+  else if (method == "en_prep_spe") {
+    ret = EnPrepSpe_TestingElement(time: time);
+  }
+  else if (method == "notes") {
+    ret = Notes_TestingElement(time: time);
+  }
+  else {
+    ret = DefaultTestingElement(time: time);
+  }
+  await ret.init(db);
+  return ret;
+}
+
+Future<void> reGet(Database db) async{
+  testingElements = [];
+  for (var method in collectParameters.methods) {
+    print("method: $method");
+    List<Map<String, dynamic>> result = await db.rawQuery('SELECT time FROM ${methodName2Table[method]} WHERE ${collectParameters.limitCode} ORDER BY RANDOM()');
+    for (var e in result) {
+      testingElements.add(await getTestingElementFromMethodTime(method, e['time'], db));
+    }
+  }
+  testingElements.shuffle(Random());
+  mainTestArea.updateTestingElement();
 }
 
 CollectParameters collectParameters = CollectParameters();
 var nowTestingElementIdx = 0;
+var nowId = 0;
 List<TestingElement> testingElements = [DefaultTestingElement(idx: 8, time: 0), DefaultTestingElement(time: 0), DefaultTestingElement(idx: 22, time: 0)];
 bool isServerOn = false;
 HttpServer? server;
 Map<String, String> methodName2Table = {
-  "EnVocDef": "en_voc",
-  "EnVocSpe": "en_voc",
-  "EnPrepDef": "en_prep",
-  "EnPrepSpe": "en_prep",
+  "en_voc_def": "en_voc",
+  "en_voc_spe": "en_voc",
+  "en_prep_def": "en_prep",
+  "en_prep_spe": "en_prep",
+  "notes": "notes"
 };

@@ -1,12 +1,6 @@
 import 'dart:io';
 import "package:path_provider/path_provider.dart";
 
-Future<String> getIp() async {
-  var socket = await Socket.connect('8.8.8.8', 80);
-  return socket.address.address;
-
-}
-
 Future<void> handleRequest(HttpRequest request) async {
   var applicationDirectory = await getApplicationDocumentsDirectory();
   if (request.method == 'GET') {
